@@ -1,0 +1,214 @@
+START
+
+IMPORT json
+
+LOAD "ecomdata.json" INTO data
+PRINT data
+
+INITIALIZE Firebase using credentials and database URL
+PRINT "Firebase connected"
+
+FOR each order IN data DO
+    STORE order in Firebase under key order_id
+END FOR
+PRINT "Data uploaded"
+
+GET data FROM Firebase
+REMOVE all NULL entries from data
+
+
+FUNCTION search_orders(data)
+    INPUT name
+    results ← empty list
+    FOR each order IN data DO
+        IF order.customer = name (ignore case) THEN
+            ADD order TO results
+        END IF
+    END FOR
+    RETURN results
+END FUNCTION
+
+
+FUNCTION print_order(order)
+    PRINT order details (id, customer, date, status, payment, address)
+    FOR each item IN order.items DO
+        PRINT product, price, quantity
+    END FOR
+    PRINT total amount
+END FUNCTION
+
+
+FUNCTION sales_summary(data)
+    total_orders ← length of data
+    total_sales ← 0
+
+    FOR each order IN data DO
+        FOR each item IN order.items DO
+            total_sales ← total_sales + (price × quantity)
+        END FOR
+    END FOR
+
+    avg ← total_sales / total_orders
+    PRINT total_orders, total_sales, avg
+
+    CALL menu
+END FUNCTION
+
+
+FUNCTION category_summary(data)
+    INPUT category
+    total_sales ← 0
+    total_qty ← 0
+    found ← FALSE
+
+    FOR each order IN data DO
+        FOR each item IN order.items DO
+            IF item.category = category THEN
+                found ← TRUE
+                total_sales += price × quantity
+                total_qty += quantity
+            END IF
+        END FOR
+    END FOR
+
+    IF found = FALSE THEN
+        PRINT "Category not found"
+    ELSE
+        PRINT total_sales, total_qty
+    END IF
+
+    CALL menu
+END FUNCTION
+
+
+FUNCTION pending_orders(data)
+    FOR each order IN data DO
+        IF order.status ≠ "Delivered" THEN
+            CALL print_order(order)
+        END IF
+    END FOR
+
+    CALL menu
+END FUNCTION
+
+
+FUNCTION best_product(data)
+    sales ← empty dictionary
+
+    FOR each order IN data DO
+        FOR each item IN order.items DO
+            sales[item.product] += item.quantity
+        END FOR
+    END FOR
+
+    SORT sales descending
+    PRINT top 3 products
+
+    CALL menu
+END FUNCTION
+
+
+FUNCTION create_order()
+    new_id ← max(order_id) + 1
+
+    INPUT customer, date, status, payment, address
+
+    items ← empty list
+    total ← 0
+
+    LOOP
+        INPUT product
+        IF product is empty THEN BREAK
+
+        INPUT category, price, quantity
+        ADD item TO items
+        total += price × quantity
+    END LOOP
+
+    CREATE order object
+    ADD to data
+
+    PRINT "Order created"
+    CALL edit_menu
+END FUNCTION
+
+
+FUNCTION edit_order()
+    INPUT order_id
+    FIND order
+
+    IF not found THEN
+        PRINT "Not found"
+        CALL edit_menu
+    END IF
+
+    DISPLAY edit options
+    INPUT choice
+
+    UPDATE selected field OR modify items
+
+    RECALCULATE total
+    PRINT "Updated"
+
+    CALL edit_menu
+END FUNCTION
+
+
+FUNCTION remove_order()
+    INPUT order_id
+    FIND order
+
+    IF not found THEN
+        PRINT "Not found"
+    ELSE
+        INPUT confirmation
+        IF yes THEN REMOVE order
+    END IF
+
+    CALL edit_menu
+END FUNCTION
+
+
+FUNCTION edit_menu()
+    DISPLAY:
+        1 Create
+        2 Edit
+        3 Remove
+        4 Back
+
+    INPUT choice
+
+    IF 1 → create_order
+    IF 2 → edit_order
+    IF 3 → remove_order
+    IF 4 → menu
+    ELSE repeat
+END FUNCTION
+
+
+FUNCTION menu()
+    DISPLAY:
+        1 Sales Summary
+        2 Top Products
+        3 Category Summary
+        4 Pending Orders
+        5 Search Orders
+        6 Edit Database
+        7 Exit
+
+    INPUT choice
+
+    IF 1 → sales_summary
+    IF 2 → best_product
+    IF 3 → category_summary
+    IF 4 → pending_orders
+    IF 5 → search_orders + print results
+    IF 6 → edit_menu
+    IF 7 → END PROGRAM
+    ELSE repeat
+END FUNCTION
+
+
+CALL menu
+
+END
